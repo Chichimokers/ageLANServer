@@ -1,5 +1,4 @@
 .task
-.env
 .idea/
 dist/
 build/**/*
@@ -18,3 +17,5 @@ coverage
 cover_routes
 coverage_all
 userData/
+config.bat
+node_modules

@@ -1,0 +1,62 @@
+name: Build Active Release (Windows)
+
+on:
+  push:
+    branches:
+      - active
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.1'
+          cache: true
+
+      - name: Build full Windows release with build-windows.ps1
+        run: |
+          $ErrorActionPreference = "Stop"
+          .\build-windows.ps1 -Version 1.16.0
+
+      - name: Zip release folder
+        run: |
+          $ErrorActionPreference = "Stop"
+          $src = "D:\Juegos\AoE2DE Lan\ageLANServer_full_1.16.0_win10_x86-64"
+          if (-not (Test-Path $src)) {
+            throw "Target folder not found: $src"
+          }
+          $date = Get-Date -Format "yyyyMMdd-HHmmss"
+          $zip = "ageLANServer_full_1.16.0_win10_x86-64-active-$date-${{ github.sha }}.zip"
+          Compress-Archive -Path "$src\*" -DestinationPath $zip -CompressionLevel Optimal
+          "ZIP_NAME=$zip" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Create/Update Release and upload asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.16.0-automatch2-active
+          name: "Age of Empires II: DE - 1v1 Automatch2 (active)"
+          body: |
+            Auto-built from branch `active` on commit ${{ github.sha }}
+            Built with `build-windows.ps1 -Version 1.16.0`
+          draft: false
+          prerelease: true
+          overwrite_files: true
+          files: |
+            ${{ env.ZIP_NAME }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

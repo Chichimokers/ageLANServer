@@ -23,7 +23,7 @@ jobs:
       matrix:
         branch:
           - main
-          - "2.0.0"
+          - dev
 
     steps:
       - name: Checkout fork branch

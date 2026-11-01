@@ -24,6 +24,7 @@ jobs:
         branch:
           - main
           - dev
+          - "2.1.0"
 
     steps:
       - name: Checkout fork branch

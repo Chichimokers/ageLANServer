@@ -26,29 +26,83 @@ func universalBinaries(binaries []config.Build) []config.UniversalBinary {
 }
 
 func GenerateConfig(archives ...*Archive) error {
+	return generateConfig(nil, archives...)
+}
+
+func GenerateCurrentConfig(currentWindowsOS OperatingSystem, archives ...*Archive) error {
+	return generateConfig(currentWindowsOS, archives...)
+}
+
+func generateConfig(currentWindowsOS OperatingSystem, archives ...*Archive) error {
+	// Only single-target configs (GenerateCurrentConfig) are restricted to the
+	// host OS/arch. The full config (GenerateConfig) must contain every
+	// supported target regardless of the machine that generates it.
+	var operatingSystem OperatingSystem
+	var architecture Architecture
+	if currentWindowsOS != nil {
+		operatingSystem = currentWindowsOS
+		architecture = currentWindowsArch()
+	}
+
 	project := config.Project{
 		Version: 2,
 	}
 	for _, a := range archives {
-		archiveBuilds := a.Builds(OSMacOS)
+		// A regular release ships a single universal macOS archive per
+		// package, so the per-architecture macOS builds are merged into one
+		// multi-architecture build (and universalized below). Single-target
+		// builds (build-current) keep one build per host architecture.
+		var mergedOSes []OperatingSystem
+		if operatingSystem == nil {
+			mergedOSes = []OperatingSystem{OSMacOS}
+		}
+		archiveBuilds := a.Builds(mergedOSes...)
+		if operatingSystem != nil {
+			archiveBuilds = slices.DeleteFunc(archiveBuilds, func(build config.Build) bool {
+				// Build IDs use OS.Name() (e.g., "linux", "mac", "win7", "win10")
+				osName := operatingSystem.Name()
+				return !strings.Contains(build.ID, "_"+osName+"_") ||
+					!slices.Contains(build.Goarch, architecture.Goarch())
+			})
+		}
 		project.Builds = append(project.Builds, archiveBuilds...)
 		project.Archives = append(project.Archives, a.Archives(archiveBuilds)...)
 	}
 	main := "./config-helper"
-	for target, archs := range *Targets64Windows {
+	windowsTargets := Targets64Windows
+	if currentWindowsOS == OSWindowsLegacy {
+		windowsTargets = NewBinaryTargets()
+		windowsTargets.AddTarget(OSWindowsLegacy, ArchAmd64)
+	}
+	// Filter config-helper builds to only current target
+	if operatingSystem != nil {
+		filteredWindowsTargets := NewBinaryTargets()
+		for target, archs := range *windowsTargets {
+			if target.Goos() == operatingSystem.Goos() {
+				for arch := range archs {
+					if arch.Goarch() == architecture.Goarch() {
+						filteredWindowsTargets.AddTarget(target, arch)
+					}
+				}
+			}
+		}
+		windowsTargets = filteredWindowsTargets
+	}
+	for target, archs := range *windowsTargets {
 		for arch := range archs {
 			binary := filepath.Join("bin", fmt.Sprintf("%s_%s", main, arch.Goarch()))
 			id := fmt.Sprintf("%s_%s_%s", binary, target.Goos(), arch.Goarch())
-			project.Builds = append(
-				project.Builds,
-				config.Build{
-					ID:     id,
-					Goos:   []string{target.Goos()},
-					Goarch: []string{arch.Goarch()},
-					Main:   main,
-					Binary: binary,
-				},
-			)
+			build := config.Build{
+				ID:     id,
+				Goos:   []string{target.Goos()},
+				Goarch: []string{arch.Goarch()},
+				Main:   main,
+				Binary: binary,
+			}
+			if tool := target.Tool(); tool != "" {
+				build.Tool = tool
+			}
+			project.Builds = append(project.Builds, build)
 		}
 	}
 	for i, arch := range project.Archives {
@@ -86,6 +140,9 @@ func GenerateConfig(archives ...*Archive) error {
 		}
 	}
 	project.UniversalBinaries = universalBinaries(project.Builds)
+	if operatingSystem != nil {
+		project.UniversalBinaries = nil
+	}
 
 	project.Checksum = config.Checksum{
 		NameTemplate: `{{ .ProjectName }}_{{ .RawVersion }}_checksums.txt`,
@@ -98,9 +155,13 @@ func GenerateConfig(archives ...*Archive) error {
 		},
 	}
 	project.Release = config.Release{
-		Draft:                    true,
-		ReplaceExistingDraft:     false,
-		UseExistingDraft:         true,
+		Draft: true,
+		// Re-running the workflow for the same tag must not reuse a draft that
+		// already holds assets from a previous run: GitHub rejects those
+		// uploads with 422 already_exists and GoReleaser has to delete and
+		// re-upload each one. Replacing the draft keeps every run idempotent.
+		ReplaceExistingDraft:     true,
+		UseExistingDraft:         false,
 		ReplaceExistingArtifacts: true,
 		Prerelease:               `auto`,
 	}

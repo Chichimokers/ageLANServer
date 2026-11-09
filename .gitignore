@@ -1,5 +1,4 @@
 .task
-.env
 .idea/
 .DS_Store
 dist/
@@ -20,3 +19,5 @@ cover_routes
 coverage_all
 userData/
 .gocache/
+config.bat
+node_modules

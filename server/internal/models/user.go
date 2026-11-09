@@ -88,16 +88,13 @@ type Users interface {
 	GetOrCreateUser(gameId string, itemDefinitions Items, avatarStatsDefinitions AvatarStatDefinitions, remoteAddr string, remoteMacAddress string, isXbox bool, platformUserId uint64, alias string) User
 	GetUserByStatGroupID(statGroupID int32) (User, bool)
 	GetUserById(id int32) (User, bool)
-<<<<<<< HEAD
+	// GetUserByProfileId returns the user with the given profile ID, which is
+	// how the routes that take a profile_id identify a profile.
+	GetUserByProfileId(profileId int32) (User, bool)
 	// GetUserByAlias resolves a connected user by alias. GetUserIds only
 	// yields ids, so a lookup by alias would otherwise be O(n) calls to
 	// GetUserById on top of an O(n) scan (community API, §3.2).
 	GetUserByAlias(alias string) (User, bool)
-=======
-	// GetUserByProfileId returns the user with the given profile ID, which is
-	// how the routes that take a profile_id identify a profile.
-	GetUserByProfileId(profileId int32) (User, bool)
->>>>>>> origin/v2.0.0-rc.1
 	GetUserIds() func(func(int32) bool)
 	EncodeProfileInfo(definitions PresenceDefinitions, matches func(user User) bool, clientLibVersion uint16) []i.A
 	GetUserByPlatformUserId(xbox bool, id uint64) (User, bool)

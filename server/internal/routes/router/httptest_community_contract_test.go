@@ -438,7 +438,7 @@ func TestCommunityContract_ConnectedUserProfileAndAvatarStats(t *testing.T) {
 
 	// The profile object must carry the live identity.
 	body := communityContractRequest(t, communityHandler(), g,
-		"/community/leaderboard/GetPersonalStat?profile_ids="+url.QueryEscape("["+itoa(user.GetId())+"]"))
+		"/community/leaderboard/GetPersonalStat?profile_ids="+url.QueryEscape("["+strconv.FormatInt(int64(user.GetId()), 10)+"]"))
 	groups, _ := body["statGroups"].([]any)
 	if len(groups) != 1 {
 		t.Fatalf("statGroups = %v, want 1", body["statGroups"])
@@ -527,10 +527,7 @@ func TestCommunityContract_ReplayFilesDisabled(t *testing.T) {
 	}
 }
 
-// itoa keeps the test free of strconv noise at the call site.
-func itoa(value int32) string {
-	return strconv.FormatInt(int64(value), 10)
-}
+
 
 // communityHostRequest builds a waiting, visible lobby with a password and an
 // observer password set, so the absence checks are meaningful.

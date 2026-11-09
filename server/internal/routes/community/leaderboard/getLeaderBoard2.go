@@ -52,6 +52,7 @@ func GetLeaderBoard2(w http.ResponseWriter, r *http.Request) {
 	}
 
 	page, total := game.MatchHistory().GetLeaderboardPageBy(q.LeaderboardID, q.Start-1, q.Count, q.SortBy)
+
 	response := LeaderBoard2Response{
 		Result:           shared.OK(),
 		StatGroups:       make([]shared.StatGroup, 0, len(page)),
@@ -89,5 +90,6 @@ func GetLeaderBoard2(w http.ResponseWriter, r *http.Request) {
 		response.StatGroups = append(response.StatGroups, shared.NewStatGroup(profile, statGroupID))
 		response.LeaderboardStats = append(response.LeaderboardStats, shared.NewStat(statGroupID, rating))
 	}
+
 	i.JSON(&w, response)
 }
